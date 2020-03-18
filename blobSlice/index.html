@@ -1,0 +1,141 @@
+<html>
+  <head>
+    <title>1px question</title>
+    <meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
+    <meta
+      name="viewport"
+      id="WebViewport"
+      content="initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no"
+    />
+    <script>
+      function resizeFun() {
+        var viewport = document.querySelector("meta[name=viewport]");
+        //下面是根据设备像素设置viewport
+        var scale = 1 / window.devicePixelRatio;
+        viewport.setAttribute(
+          "content",
+          `width=device-width,initial-scale=${scale}, maximum-scale=${scale}, minimum-scale=${scale}, user-scalable=no`
+        );
+        var docEl = document.documentElement;
+        var fontsize = 32 * (docEl.clientWidth / 375) + "px";
+        docEl.style.fontSize = fontsize;
+      }
+      window.onresize = resizeFun;
+      resizeFun();
+    </script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script>
+      axios.interceptors.response.use(
+        function(response) {
+          return response.data;
+        },
+        function(error) {
+          return Promise.reject(error);
+        }
+      );
+    </script>
+    <script src="./spark-md5.min.js"></script>
+    <style>
+      .progress {
+        height: 10px;
+        border: 1px solid #ccc;
+        position: relative;
+      }
+      .progress span {
+        display: block;
+        width: 0;
+        height: 10px;
+        background: red;
+        transition: all 0.1s ease;
+      }
+    </style>
+  </head>
+  <body>
+    <input type="text" />
+    <input type="file" id="file" name="file" />
+    <button id="fileUpload">上传</button>
+
+    <div class="progress" id="progress">
+      <span></span>
+    </div>
+    <script>
+      var fileUploadRef = document.querySelector("#fileUpload");
+      fileUploadRef.addEventListener("click", () => {
+        var fileRef = document.querySelector("#file");
+        var file = fileRef.files[0];
+        var chunks = blobSlice(file);
+        var spark = new SparkMD5();
+        chunks.forEach(blob => spark.appendBinary(blob));
+        var md5 = spark.end();
+
+        var chunksData = chunks.map((blob, index) => {
+          var fData = new FormData();
+          fData.append("file", blob, file.name);
+          fData.append("chunkIndex", index);
+          fData.append("chunkCount", chunks.length);
+          fData.append("md5", md5);
+          return fData;
+        });
+
+        let total = 0;
+
+        let span = document.querySelector("#progress span");
+        span.style.width = `0%`;
+        span.style.background = "red";
+        promiseSync(chunksData, 5, data => {
+          return axios.post("http://localhost:3000/file/upload", data, {
+            onUploadProgress: progressEvent => {
+              if (progressEvent.loaded === progressEvent.total) {
+                total += progressEvent.total;
+              }
+              span.style.width = `${((total / file.size) * 100).toFixed(2)}%`;
+              span.style.background = "green";
+            }
+          });
+        }).then(resule => {
+          axios.post("http://localhost:3000/file/merge", {
+            md5: md5,
+            ...resule[0]
+          });
+        });
+      });
+      function blobSlice(blob, chunkSize = 10 * 1024 * 1024) {
+        var chunks = [];
+        var [start, end] = [0, 0];
+        while (true) {
+          end += chunkSize;
+          var _blob = blob.slice(start, end);
+          start += chunkSize;
+          if (!_blob.size) break;
+          chunks.push(_blob);
+        }
+        console.info(chunks);
+        return chunks;
+      }
+
+      function fileReaderSync(blob) {
+        return new Promise((resolve, reject) => {
+          const fileReader = new FileReader();
+          fileReader.onload = e => {
+            resolve(e.target.result);
+          };
+          fileReader.readAsBinaryString(blob);
+        });
+      }
+
+      async function promiseSync(chunks, size, fn) {
+        let chunkList = [];
+        let resule;
+        for (let index = 0; index < chunks.length; index++) {
+          const item = chunks[index];
+          chunkList.push(fn(item));
+          if (chunkList.length == size) {
+            resule = await Promise.all(chunkList);
+            chunkList = [];
+          }
+        }
+        return resule;
+      }
+    </script>
+  </body>
+</html>

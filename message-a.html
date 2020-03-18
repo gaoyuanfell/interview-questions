@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>a页面</title>
+  </head>
+  <body>
+    <button id="button">打开B</button>
+    <iframe src="http://192.168.32.2:8080/message-b.html" id="iframe"></iframe>
+    <script>
+      var iframe = document.getElementById("iframe");
+      setInterval(() => {
+        iframe.contentWindow.postMessage("hello", "*");
+      }, 1000);
+
+      window.addEventListener("message", e => {
+        console.info(e.data);
+      });
+
+      // document.getElementById("button").addEventListener("click", click);
+      // function click() {
+      //   var win = window.open("http://192.168.32.2:8080/message-b.html");
+      //   setInterval(() => {
+      //     win.postMessage("hello", "*");
+      //   }, 1000);
+      // }
+    </script>
+  </body>
+</html>

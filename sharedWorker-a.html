@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>a页面</title>
+  </head>
+  <body>
+    <script>
+      // 第一种方法中是使用事件句柄的方式将听message事件，不需要调用worker.port.start(),第二种方法是通过addEventListener()方法监听message事件，需要worker.port.start()方法激活端口
+      var sharedworker = new SharedWorker("sharedWorker.js");
+      sharedworker.port.start();
+      sharedworker.port.addEventListener("message", evt => {
+        // evt.data
+        console.info(evt);
+      });
+    </script>
+  </body>
+</html>
