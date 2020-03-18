@@ -38,7 +38,7 @@ function nameSuffix(originalname) {
   return names[names.length - 1];
 }
 
-// 合并分片文件
+// 合并分片文件 注意文件顺序
 function fileMerge(target, result) {
   return new Promise((resolve, reject) => {
     let files = [];
@@ -61,7 +61,7 @@ function fileMerge(target, result) {
   });
 }
 
-//无序的 废弃
+//无序的 废弃 待验证
 /* function fileMerge(target, result) {
   return new Promise((resolve, reject) => {
     let files = [];
