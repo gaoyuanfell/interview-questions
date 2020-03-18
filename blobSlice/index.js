@@ -39,61 +39,63 @@ function nameSuffix(originalname) {
 }
 
 // 合并分片文件 注意文件顺序
+// function fileMerge(target, result) {
+//   return new Promise((resolve, reject) => {
+//     let files = [];
+//     if (fs.existsSync(result)) {
+//       files = fs.readdirSync(result);
+//       if (files && files.length) {
+//         let filePath = path.join(`${target}.${nameSuffix(files[0])}`);
+//         fs.writeFileSync(filePath);
+//         const forEachWrite = function (index, array) {
+//           console.info(path.join(result, array[index]))
+//           fs.appendFileSync(filePath, fs.readFileSync(path.join(result, array[index])));
+//           if (index < array.length - 1) {
+//             forEachWrite(++index, array);
+//           } else {
+//             resolve();
+//           }
+//         };
+//         forEachWrite(0, files);
+//       }
+//     }
+//   });
+// }
+
+// 合并分片文件 注意文件顺序
 function fileMerge(target, result) {
   return new Promise((resolve, reject) => {
     let files = [];
     if (fs.existsSync(result)) {
       files = fs.readdirSync(result);
       if (files && files.length) {
-        let filePath = path.join(`${target}.${nameSuffix(files[0])}`);
-        fs.writeFileSync(filePath);
-        const forEachWrite = function(index, array) {
-          fs.appendFileSync(filePath, fs.readFileSync(path.join(result, array[index])));
-          if (index < array.length - 1) {
-            forEachWrite(++index, array);
-          } else {
-            resolve();
-          }
-        };
-        forEachWrite(0, files);
-      }
-    }
-  });
-}
-
-//无序的 废弃 待验证
-/* function fileMerge(target, result) {
-  return new Promise((resolve, reject) => {
-    let files = [];
-    if (fs.existsSync(result)) {
-      files = fs.readdirSync(result);
-      if (files && files.length) {
         let cws = fs.createWriteStream(path.join(`${target}.${nameSuffix(files[0])}`));
-        const forEachWrite = function(index, array, writeStream) {
-          let s = fs.createReadStream(path.join(result, array[index]));
-          s.on("data", chunk => {
+        const forEachWrite = (index, array, writeStream) => {
+          let crs = fs.createReadStream(path.join(result, array[index]));
+          crs.on("data", chunk => {
             writeStream.write(chunk);
           });
-          s.on("error", function(err) {
+          crs.on("error", err => {
             console.info(err);
             writeStream.close();
+            crs.close();
             reject();
           });
-          s.on("end", () => {
+          crs.on("end", () => {
             if (index < array.length - 1) {
               forEachWrite(++index, array, writeStream);
             } else {
               writeStream.close();
+              crs.close();
               resolve();
             }
           });
         };
-
         forEachWrite(0, files, cws);
       }
     }
   });
-} */
+}
 
 //删除文件夹下的所有文件或文件夹
 function deleteFolderRecursive(path) {
@@ -146,7 +148,15 @@ routeFile.post("/upload", upload.any(), (req, res) => {
   } else {
     const chunksPath = path.join(destination, md5, "/");
     if (!fs.existsSync(chunksPath)) mkdirsSync(chunksPath);
-    fs.renameSync(_path, path.join(chunksPath, `${chunkIndex}-${md5}.${nameSuffix(filename)}`));
+
+    // 保证文件顺序 可能不同的系统排序方式会不一样 可能有坑 解决办法 手动生成文件名 逐个读取
+    fs.renameSync(
+      _path,
+      path.join(
+        chunksPath,
+        `${String(chunkIndex).padStart(String(+chunkCount + 1).length, "0")}-${md5}.${nameSuffix(filename)}`
+      )
+    );
     res.send({
       code: 200,
     });
@@ -179,7 +189,6 @@ routeFile.post("/renewal", (req, res) => {
   if (fs.existsSync(_path)) {
     let files = fs.readdirSync(_path);
     files.forEach(file => {
-      console.info(file.substr(0, file.indexOf("-")));
       renewalList.push(parseInt(file.substr(0, file.indexOf("-"))));
     });
     res.send({
