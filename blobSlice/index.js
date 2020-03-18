@@ -179,6 +179,7 @@ routeFile.post("/renewal", (req, res) => {
   if (fs.existsSync(_path)) {
     let files = fs.readdirSync(_path);
     files.forEach(file => {
+      console.info(file.substr(0, file.indexOf("-")));
       renewalList.push(parseInt(file.substr(0, file.indexOf("-"))));
     });
     res.send({
