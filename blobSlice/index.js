@@ -6,6 +6,9 @@ const cookieParser = require("cookie-parser");
 const multer = require("multer");
 const uuid = require("uuid");
 const cors = require("cors");
+const EventEmitter = require("events");
+class Emitter extends EventEmitter {}
+const emitter = new Emitter();
 const app = express();
 
 app.use(bodyParser.json()); // for parsing application/json
@@ -38,7 +41,7 @@ function nameSuffix(originalname) {
   return names[names.length - 1];
 }
 
-// 合并分片文件 注意文件顺序
+// 合并分片文件
 // function fileMerge(target, result) {
 //   return new Promise((resolve, reject) => {
 //     let files = [];
@@ -62,36 +65,132 @@ function nameSuffix(originalname) {
 //   });
 // }
 
+// 还是不行  看来要自己写流了
+// function fileMerge(target, result) {
+//   return new Promise((resolve, reject) => {
+//     let files = [];
+//     if (fs.existsSync(result)) {
+//       files = fs.readdirSync(result);
+//       if (files && files.length) {
+//         let cws = fs.createWriteStream(path.join(`${target}.${nameSuffix(files[0])}`));
+//         const forEachWrite = (index, array) => {
+//           let crs = fs.createReadStream(path.join(result, array[index])).pipe(cws);
+//           if (index < array.length - 1) {
+//             forEachWrite(++index, array);
+//           } else {
+//             cws.close();
+//             // crs.close();
+//             resolve();
+//           }
+//         };
+//         forEachWrite(0, files);
+//       }
+//     }
+//   });
+// }
+
 // 合并分片文件 注意文件顺序
+/* function fileMerge(target, result) {
+  return new Promise((resolve, reject) => {
+    let files = [];
+    if (fs.existsSync(result)) {
+      files = fs.readdirSync(result);
+      if (files && files.length) {
+        // 读取highWaterMark(3字节)数据，读完之后填充缓存区，然后触发data事件
+        let cws = fs.createWriteStream(path.join(`${target}.${nameSuffix(files[0])}`), {
+          highWaterMark: 1024 * 1024,
+        });
+
+        const forEachWrite = (index, array) => {
+          let crs = fs.createReadStream(path.join(result, array[index]), {
+            highWaterMark: 1024 * 1024,
+          });
+          // 当有数据流出时，写入数据
+          crs.on("data", chunk => {
+            if (cws.write(chunk) === false) {
+              // 如果没有写完，暂停读取流
+              crs.pause();
+            }
+          });
+          // 缓冲区清空触发drain事件 这时再继续读取
+          cws.on("drain", () => {
+            crs.resume();
+          });
+
+          crs.on("error", err => {
+            console.info(err);
+            cws.close();
+            crs.close();
+            reject();
+          });
+          crs.on("end", () => {
+            if (index < array.length - 1) {
+              forEachWrite(++index, array);
+            } else {
+              cws.close();
+              crs.close();
+              resolve();
+            }
+          });
+        };
+        forEachWrite(0, files);
+      }
+    }
+  });
+} */
+
 function fileMerge(target, result) {
   return new Promise((resolve, reject) => {
     let files = [];
     if (fs.existsSync(result)) {
       files = fs.readdirSync(result);
       if (files && files.length) {
-        let cws = fs.createWriteStream(path.join(`${target}.${nameSuffix(files[0])}`));
-        const forEachWrite = (index, array, writeStream) => {
-          let crs = fs.createReadStream(path.join(result, array[index]));
+        let cws = fs.createWriteStream(path.join(`${target}.${nameSuffix(files[0])}`), {
+          highWaterMark: 1024 * 1024,
+        });
+
+        cws.once("open", () => {
+          forEachWrite(0, files);
+        });
+
+        const drainList = [];
+
+        cws.on("drain", () => {
+          let crs = drainList.pop();
+          if (crs) crs.resume();
+        });
+
+        emitter.on("drain", fn => {
+          drainList.push(fn());
+        });
+
+        const forEachWrite = (index, array) => {
+          let crs = fs.createReadStream(path.join(result, array[index]), {
+            highWaterMark: 1024 * 1024 * 2,
+          });
+
           crs.on("data", chunk => {
-            writeStream.write(chunk);
+            if (cws.write(chunk) === false) {
+              // 如果没有写完，暂停读取流
+              crs.pause();
+
+              drainList.push();
+              emitter.emit("drain", () => {
+                return crs;
+              });
+            }
           });
-          crs.on("error", err => {
-            console.info(err);
-            writeStream.close();
-            crs.close();
-            reject();
-          });
+
           crs.on("end", () => {
             if (index < array.length - 1) {
-              forEachWrite(++index, array, writeStream);
+              forEachWrite(++index, array);
             } else {
-              writeStream.close();
               crs.close();
+              cws.close();
               resolve();
             }
           });
         };
-        forEachWrite(0, files, cws);
       }
     }
   });
