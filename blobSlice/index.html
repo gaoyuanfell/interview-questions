@@ -134,16 +134,13 @@
               });
             },
             chunkMerge: () => {
-              axios
-                .post("http://localhost:3000/file/merge", {
-                  md5: md5,
-                })
-                .then(() => {
-                  // span.style.background = "green";
-                });
+              return axios.post("http://localhost:3000/file/merge", {
+                md5: md5,
+              });
             },
             chunkSuccess: () => {
               // span.style.background = "green";
+              console.info("ok");
             },
           });
         }
@@ -253,8 +250,11 @@
             }
           }
         }
-        if (chunkData.length > 1) {
-          chunkMerge && chunkMerge();
+        if (chunkData.length > 1 && chunkMerge) {
+          let _chunkMerge = chunkMerge();
+          if (_chunkMerge instanceof Promise) {
+            await _chunkMerge;
+          }
         }
         chunkSuccess && chunkSuccess();
       }

@@ -6,25 +6,7 @@ const cookieParser = require("cookie-parser");
 const multer = require("multer");
 const uuid = require("uuid");
 const cors = require("cors");
-
-// const cluster = require("cluster");
-// const cpusNumber = require("os").cpus().length;
-
-// if (cluster.isMaster) {
-//   console.info(cluster.isMaster);
-//   console.info(cpusNumber);
-
-//   console.log(`主进程 ${process.pid} 正在运行`);
-
-//   // 衍生工作进程。
-//   for (let i = 0; i < cpusNumber; i++) {
-//     cluster.fork();
-//   }
-
-//   cluster.on("exit", (worker, code, signal) => {
-//     console.log(`工作进程 ${worker.process.pid} 已退出`);
-//   });
-// }
+const cluster = require("cluster");
 
 ////////--------------------------------------------------/////////
 
@@ -70,9 +52,9 @@ async function fileMerge(target, result) {
   if (fs.existsSync(result)) {
     files = fs.readdirSync(result);
     if (files && files.length) {
-      console.info(path.join(`${target}.${nameSuffix(files[0])}`));
+      // console.info(path.join(`${target}.${nameSuffix(files[0])}`));
       let cws = fs.createWriteStream(path.join(`${target}.${nameSuffix(files[0])}`), {
-        highWaterMark: 2 * 1024 * 1024,
+        highWaterMark: 2 * 1024 * 1024, // 2 * 1024 * 1024
       });
       for (let index = 0; index < files.length; index++) {
         await forEachWrite(cws, result, files[index]);
@@ -85,7 +67,7 @@ async function fileMerge(target, result) {
 async function forEachWrite(cws, result, item) {
   return new Promise((resolve, reject) => {
     let crs = fs.createReadStream(path.join(result, item), {
-      highWaterMark: 2 * 1024 * 1024,
+      highWaterMark: 2 * 1024 * 1024, // 2 * 1024 * 1024
     });
     crs.on("data", chunk => {
       cws.write(chunk);
@@ -296,6 +278,10 @@ let upload = multer({
 let routeFile = express.Router();
 
 routeFile.post("/upload", upload.any(), (req, res) => {
+  if (!cluster.isMaster) {
+    process.send({ event: "upload", pid: process.pid });
+  }
+
   let { chunkIndex, chunkCount, md5 } = req.body;
   let { originalname, fieldname, filename, destination, size, path: _path } = req.files[0];
 
@@ -324,6 +310,10 @@ routeFile.post("/upload", upload.any(), (req, res) => {
 
 // 合并分片
 routeFile.post("/merge", (req, res) => {
+  if (!cluster.isMaster) {
+    process.send({ event: "merge", pid: process.pid });
+  }
+
   let { md5 } = req.body;
   let uploadPath = getNowTempPath();
   let target = path.join(path.join(uploadPath, "../"), md5);
@@ -340,6 +330,10 @@ routeFile.post("/merge", (req, res) => {
 
 // 断点续传
 routeFile.post("/renewal", (req, res) => {
+  if (!cluster.isMaster) {
+    process.send({ event: "renewal", pid: process.pid });
+  }
+
   let { md5 } = req.body;
   let uploadPath = getNowTempPath();
 
