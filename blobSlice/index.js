@@ -6,9 +6,32 @@ const cookieParser = require("cookie-parser");
 const multer = require("multer");
 const uuid = require("uuid");
 const cors = require("cors");
+
+// const cluster = require("cluster");
+// const cpusNumber = require("os").cpus().length;
+
+// if (cluster.isMaster) {
+//   console.info(cluster.isMaster);
+//   console.info(cpusNumber);
+
+//   console.log(`主进程 ${process.pid} 正在运行`);
+
+//   // 衍生工作进程。
+//   for (let i = 0; i < cpusNumber; i++) {
+//     cluster.fork();
+//   }
+
+//   cluster.on("exit", (worker, code, signal) => {
+//     console.log(`工作进程 ${worker.process.pid} 已退出`);
+//   });
+// }
+
+////////--------------------------------------------------/////////
+
 const EventEmitter = require("events");
 class Emitter extends EventEmitter {}
 const emitter = new Emitter();
+
 const app = express();
 
 app.use(bodyParser.json()); // for parsing application/json
@@ -39,6 +62,43 @@ function getNowTempPath() {
 function nameSuffix(originalname) {
   let names = originalname.split(".");
   return names[names.length - 1];
+}
+
+// 合并分片文件 逐个读取写入
+async function fileMerge(target, result) {
+  let files = [];
+  if (fs.existsSync(result)) {
+    files = fs.readdirSync(result);
+    if (files && files.length) {
+      console.info(path.join(`${target}.${nameSuffix(files[0])}`));
+      let cws = fs.createWriteStream(path.join(`${target}.${nameSuffix(files[0])}`), {
+        highWaterMark: 2 * 1024 * 1024,
+      });
+      for (let index = 0; index < files.length; index++) {
+        await forEachWrite(cws, result, files[index]);
+      }
+      cws.close();
+    }
+  }
+}
+
+async function forEachWrite(cws, result, item) {
+  return new Promise((resolve, reject) => {
+    let crs = fs.createReadStream(path.join(result, item), {
+      highWaterMark: 2 * 1024 * 1024,
+    });
+    crs.on("data", chunk => {
+      cws.write(chunk);
+    });
+    crs.on("error", err => {
+      crs.close();
+      reject(err);
+    });
+    crs.on("end", () => {
+      crs.close();
+      resolve();
+    });
+  });
 }
 
 // 合并分片文件
@@ -139,62 +199,62 @@ function nameSuffix(originalname) {
   });
 } */
 
-function fileMerge(target, result) {
-  return new Promise((resolve, reject) => {
-    let files = [];
-    if (fs.existsSync(result)) {
-      files = fs.readdirSync(result);
-      if (files && files.length) {
-        let cws = fs.createWriteStream(path.join(`${target}.${nameSuffix(files[0])}`), {
-          highWaterMark: 1024 * 1024,
-        });
+// function fileMerge(target, result) {
+//   return new Promise((resolve, reject) => {
+//     let files = [];
+//     if (fs.existsSync(result)) {
+//       files = fs.readdirSync(result);
+//       if (files && files.length) {
+//         let cws = fs.createWriteStream(path.join(`${target}.${nameSuffix(files[0])}`), {
+//           highWaterMark: 1024 * 1024,
+//         });
 
-        cws.once("open", () => {
-          forEachWrite(0, files);
-        });
+//         cws.once("open", () => {
+//           forEachWrite(0, files);
+//         });
 
-        const drainList = [];
+//         const drainList = [];
 
-        cws.on("drain", () => {
-          let crs = drainList.pop();
-          if (crs) crs.resume();
-        });
+//         cws.on("drain", () => {
+//           let crs = drainList.pop();
+//           if (crs) crs.resume();
+//         });
 
-        emitter.on("drain", fn => {
-          drainList.push(fn());
-        });
+//         emitter.on("drain", fn => {
+//           drainList.push(fn());
+//         });
 
-        const forEachWrite = (index, array) => {
-          let crs = fs.createReadStream(path.join(result, array[index]), {
-            highWaterMark: 1024 * 1024 * 2,
-          });
+//         const forEachWrite = (index, array) => {
+//           let crs = fs.createReadStream(path.join(result, array[index]), {
+//             highWaterMark: 1024 * 1024 * 2,
+//           });
 
-          crs.on("data", chunk => {
-            if (cws.write(chunk) === false) {
-              // 如果没有写完，暂停读取流
-              crs.pause();
+//           crs.on("data", chunk => {
+//             if (cws.write(chunk) === false) {
+//               // 如果没有写完，暂停读取流
+//               crs.pause();
 
-              drainList.push();
-              emitter.emit("drain", () => {
-                return crs;
-              });
-            }
-          });
+//               drainList.push();
+//               emitter.emit("drain", () => {
+//                 return crs;
+//               });
+//             }
+//           });
 
-          crs.on("end", () => {
-            if (index < array.length - 1) {
-              forEachWrite(++index, array);
-            } else {
-              crs.close();
-              cws.close();
-              resolve();
-            }
-          });
-        };
-      }
-    }
-  });
-}
+//           crs.on("end", () => {
+//             if (index < array.length - 1) {
+//               forEachWrite(++index, array);
+//             } else {
+//               crs.close();
+//               cws.close();
+//               resolve();
+//             }
+//           });
+//         };
+//       }
+//     }
+//   });
+// }
 
 //删除文件夹下的所有文件或文件夹
 function deleteFolderRecursive(path) {
@@ -269,8 +329,8 @@ routeFile.post("/merge", (req, res) => {
   let target = path.join(path.join(uploadPath, "../"), md5);
   let result = path.join(uploadPath, md5);
   fileMerge(target, result).then(() => {
-    console.info("合并完成");
     deleteFolderRecursive(result);
+    console.info("合并完成");
     res.send({
       code: 200,
       md5,

@@ -67,7 +67,7 @@
   <body>
     <pre>node 启动 index.js</pre>
     <input type="text" />
-    <input type="file" id="file" name="file" />
+    <input type="file" multiple id="file" name="file" />
     <button id="fileUpload">上传</button>
     <button id="fileRenewal">续传</button>
 
@@ -77,73 +77,139 @@
     <script>
       let fileUploadRef = document.querySelector("#fileUpload");
       fileUploadRef.addEventListener("click", () => {
-        uploadFun();
+        uploadsFun();
       });
 
       let fileRenewalRef = document.querySelector("#fileRenewal");
       fileRenewalRef.addEventListener("click", () => {
-        uploadFun();
+        uploadsFun();
       });
 
-      async function uploadFun() {
-        let fileRef = document.querySelector("#file");
-        let file = fileRef.files[0];
+      async function uploadsFun() {
         let chunkSize = 2 * 1024 * 1024;
         let chunkSplit = 5;
-        let chunks = blobSlice(file, chunkSize);
-        let spark = new SparkMD5();
-        chunks.forEach(blob => spark.appendBinary(blob));
-        let md5 = spark.end();
+        let fileRef = document.querySelector("#file");
+        let files = fileRef.files;
 
-        let renewalRes = await axios.post("http://localhost:3000/file/renewal", {
-          md5: md5,
-        });
+        for (let index = 0; index < files.length; index++) {
+          const file = files[index];
+          let chunks = blobSlice(file, chunkSize);
+          let spark = new SparkMD5();
+          chunks.forEach(blob => spark.appendBinary(blob));
+          let md5 = spark.end();
 
-        if (renewalRes.code != 200) return;
-        let renewalList = renewalRes.data;
+          let renewalRes = await axios.post("http://localhost:3000/file/renewal", {
+            md5: md5,
+          });
 
-        let totalUpload = renewalList.length * chunkSize;
-        let span = document.querySelector("#progress span");
-        span.style.width = `${((totalUpload / file.size) * 100).toFixed(2)}%`;
-        span.style.background = "red";
+          if (renewalRes.code != 200) return;
+          let renewalList = renewalRes.data;
 
-        let chunksData = chunks.map((blob, index) => {
-          let fData = new FormData();
-          fData.append("file", blob, file.name);
-          fData.append("chunkIndex", index);
-          fData.append("chunkCount", chunks.length);
-          fData.append("md5", md5);
-          return fData;
-        });
+          let totalUpload = renewalList.length * chunkSize;
+          // let span = document.querySelector("#progress span");
+          // span.style.width = `${((totalUpload / file.size) * 100).toFixed(2)}%`;
+          // span.style.background = "red";
 
-        promiseSync({
-          chunkData: chunksData,
-          chunkSplit: chunkSplit,
-          chunkRenewal: renewalList,
-          chunkCallback: data => {
-            return axios.post("http://localhost:3000/file/upload", data, {
-              onUploadProgress: progressEvent => {
-                if (progressEvent.loaded === progressEvent.total) {
-                  totalUpload += progressEvent.total;
-                }
-                span.style.width = `${((totalUpload / file.size) * 100).toFixed(2)}%`;
-              },
-            });
-          },
-          chunkMerge: () => {
-            axios
-              .post("http://localhost:3000/file/merge", {
-                md5: md5,
-              })
-              .then(() => {
-                span.style.background = "green";
+          let chunksData = chunks.map((blob, index) => {
+            let fData = new FormData();
+            fData.append("file", blob, file.name);
+            fData.append("chunkIndex", index);
+            fData.append("chunkCount", chunks.length);
+            fData.append("md5", md5);
+            return fData;
+          });
+
+          promiseSync({
+            chunkData: chunksData,
+            chunkSplit: chunkSplit,
+            chunkRenewal: renewalList,
+            chunkCallback: data => {
+              return axios.post("http://localhost:3000/file/upload", data, {
+                onUploadProgress: progressEvent => {
+                  if (progressEvent.loaded === progressEvent.total) {
+                    totalUpload += progressEvent.total;
+                  }
+                  // span.style.width = `${((totalUpload / file.size) * 100).toFixed(2)}%`;
+                },
               });
-          },
-          chunkSuccess: () => {
-            span.style.background = "green";
-          },
-        });
+            },
+            chunkMerge: () => {
+              axios
+                .post("http://localhost:3000/file/merge", {
+                  md5: md5,
+                })
+                .then(() => {
+                  // span.style.background = "green";
+                });
+            },
+            chunkSuccess: () => {
+              // span.style.background = "green";
+            },
+          });
+        }
       }
+
+      // async function uploadFun() {
+      //   let chunkSize = 2 * 1024 * 1024;
+      //   let chunkSplit = 5;
+
+      //   let fileRef = document.querySelector("#file");
+
+      //   let file = fileRef.files[0];
+      //   let chunks = blobSlice(file, chunkSize);
+      //   let spark = new SparkMD5();
+      //   chunks.forEach(blob => spark.appendBinary(blob));
+      //   let md5 = spark.end();
+
+      //   let renewalRes = await axios.post("http://localhost:3000/file/renewal", {
+      //     md5: md5,
+      //   });
+
+      //   if (renewalRes.code != 200) return;
+      //   let renewalList = renewalRes.data;
+
+      //   let totalUpload = renewalList.length * chunkSize;
+      //   let span = document.querySelector("#progress span");
+      //   span.style.width = `${((totalUpload / file.size) * 100).toFixed(2)}%`;
+      //   span.style.background = "red";
+
+      //   let chunksData = chunks.map((blob, index) => {
+      //     let fData = new FormData();
+      //     fData.append("file", blob, file.name);
+      //     fData.append("chunkIndex", index);
+      //     fData.append("chunkCount", chunks.length);
+      //     fData.append("md5", md5);
+      //     return fData;
+      //   });
+
+      //   promiseSync({
+      //     chunkData: chunksData,
+      //     chunkSplit: chunkSplit,
+      //     chunkRenewal: renewalList,
+      //     chunkCallback: data => {
+      //       return axios.post("http://localhost:3000/file/upload", data, {
+      //         onUploadProgress: progressEvent => {
+      //           if (progressEvent.loaded === progressEvent.total) {
+      //             totalUpload += progressEvent.total;
+      //           }
+      //           span.style.width = `${((totalUpload / file.size) * 100).toFixed(2)}%`;
+      //         },
+      //       });
+      //     },
+      //     chunkMerge: () => {
+      //       axios
+      //         .post("http://localhost:3000/file/merge", {
+      //           md5: md5,
+      //         })
+      //         .then(() => {
+      //           span.style.background = "green";
+      //         });
+      //     },
+      //     chunkSuccess: () => {
+      //       span.style.background = "green";
+      //     },
+      //   });
+      // }
 
       function blobSlice(blob, chunkSize = 2 * 1024 * 1024) {
         let chunks = [];
