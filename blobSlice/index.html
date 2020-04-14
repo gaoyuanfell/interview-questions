@@ -8,6 +8,7 @@
       content="initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no"
     />
     <script>
+      document.domain = document.domain;
       function resizeFun() {
         let viewport = document.querySelector("meta[name=viewport]");
         //下面是根据设备像素设置viewport
@@ -26,10 +27,10 @@
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
     <script>
       axios.interceptors.response.use(
-        function(response) {
+        function (response) {
           return response.data;
         },
-        function(error) {
+        function (error) {
           return Promise.reject(error);
         }
       );
@@ -95,7 +96,7 @@
           const file = files[index];
           let chunks = blobSlice(file, chunkSize);
           let spark = new SparkMD5();
-          chunks.forEach(blob => spark.appendBinary(blob));
+          chunks.forEach((blob) => spark.appendBinary(blob));
           let md5 = spark.end();
 
           let renewalRes = await axios.post("http://localhost:3000/file/renewal", {
@@ -123,9 +124,9 @@
             chunkData: chunksData,
             chunkSplit: chunkSplit,
             chunkRenewal: renewalList,
-            chunkCallback: data => {
+            chunkCallback: (data) => {
               return axios.post("http://localhost:3000/file/upload", data, {
-                onUploadProgress: progressEvent => {
+                onUploadProgress: (progressEvent) => {
                   if (progressEvent.loaded === progressEvent.total) {
                     totalUpload += progressEvent.total;
                   }
@@ -224,7 +225,7 @@
       function fileReaderSync(blob) {
         return new Promise((resolve, reject) => {
           const fileReader = new FileReader();
-          fileReader.onload = e => {
+          fileReader.onload = (e) => {
             resolve(e.target.result);
           };
           fileReader.readAsBinaryString(blob);

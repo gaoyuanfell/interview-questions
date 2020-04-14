@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Document</title>
+  </head>
+  <body>
+    <script>
+      if (location.href === "http://127.0.0.1:8081/2.html") {
+        console.info("1111");
+        window.name = JSON.stringify({
+          a: 1,
+        });
+        setTimeout(() => {
+          location.href = "http://127.0.0.1:8080/2.html";
+        }, 1000);
+      }
+    </script>
+  </body>
+</html>

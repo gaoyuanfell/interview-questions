@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>liveBroadcast</title>
+    <script src="https://webrtchacks.github.io/adapter/adapter-latest.js"></script>
+  </head>
+  <body>
+    <!-- https://developer.mozilla.org/zh-CN/docs/Web/API/WebRTC_API -->
+    <div>
+      <video id="video"></video>
+    </div>
+
+    <button id="connectButton" name="connectButton">
+      Connect
+    </button>
+
+    <button id="disconnectButton" name="disconnectButton" disabled>
+      Disconnect
+    </button>
+    <button id="sendButton" name="sendButton" disabled>
+      Send
+    </button>
+
+    <script src="./1.js"></script>
+  </body>
+</html>

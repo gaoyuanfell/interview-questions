@@ -5,7 +5,7 @@ const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
 const uuid = require("uuid");
-const cors = require("cors");
+// const cors = require("cors");
 const cluster = require("cluster");
 
 ////////--------------------------------------------------/////////
@@ -22,14 +22,14 @@ app.use(
     extended: false,
   })
 ); // for parsing application/x-www-form-urlencoded
-app.use(cors()); //跨域
+// app.use(cors()); //跨域
 app.use(cookieParser());
 
 // 创建文件夹
 function mkdirsSync(filePath) {
   let array = filePath.split("/");
   let _p = "";
-  array.forEach(data => {
+  array.forEach((data) => {
     _p += data + "/";
     if (!fs.existsSync(_p)) fs.mkdirSync(_p);
   });
@@ -69,10 +69,10 @@ async function forEachWrite(cws, result, item) {
     let crs = fs.createReadStream(path.join(result, item), {
       highWaterMark: 2 * 1024 * 1024, // 2 * 1024 * 1024
     });
-    crs.on("data", chunk => {
+    crs.on("data", (chunk) => {
       cws.write(chunk);
     });
-    crs.on("error", err => {
+    crs.on("error", (err) => {
       crs.close();
       reject(err);
     });
@@ -243,7 +243,7 @@ function deleteFolderRecursive(path) {
   let files = [];
   if (fs.existsSync(path)) {
     files = fs.readdirSync(path);
-    files.forEach(file => {
+    files.forEach((file) => {
       let curPath = path + "/" + file;
       if (fs.statSync(curPath).isDirectory()) {
         deleteFolderRecursive(curPath);
@@ -257,7 +257,7 @@ function deleteFolderRecursive(path) {
 
 // 上传配置
 let storage = multer.diskStorage({
-  destination: function(req, file, cb) {
+  destination: function (req, file, cb) {
     let uploadPath = getNowTempPath();
     mkdirsSync(uploadPath);
     cb(null, uploadPath);
@@ -341,7 +341,7 @@ routeFile.post("/renewal", (req, res) => {
   let renewalList = [];
   if (fs.existsSync(_path)) {
     let files = fs.readdirSync(_path);
-    files.forEach(file => {
+    files.forEach((file) => {
       renewalList.push(parseInt(file.substr(0, file.indexOf("-"))));
     });
     res.send({
