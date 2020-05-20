@@ -5,8 +5,22 @@ const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 const multer = require("multer");
 const uuid = require("uuid");
-// const cors = require("cors");
+const cors = require("cors");
 const cluster = require("cluster");
+const Busboy = require("busboy");
+const appendField = require("append-field");
+const ReadableStream = require("stream").Readable;
+const inherits = require("util").inherits;
+
+function FileStream(opts) {
+  if (!(this instanceof FileStream)) return new FileStream(opts);
+  ReadableStream.call(this, opts);
+
+  this.truncated = false;
+}
+inherits(FileStream, ReadableStream);
+
+FileStream.prototype._read = function (n) {};
 
 ////////--------------------------------------------------/////////
 
@@ -22,7 +36,7 @@ app.use(
     extended: false,
   })
 ); // for parsing application/x-www-form-urlencoded
-// app.use(cors()); //跨域
+app.use(cors()); //跨域
 app.use(cookieParser());
 
 // 创建文件夹
@@ -38,6 +52,11 @@ function mkdirsSync(filePath) {
 function getNowTempPath() {
   // `uploads/${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}/temp`
   return `uploads/temp`;
+}
+
+function getNowTempPath2() {
+  // `uploads/${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}/temp`
+  return `uploads/temp2`;
 }
 
 // 获取文件后缀
@@ -277,36 +296,92 @@ let upload = multer({
 
 let routeFile = express.Router();
 
-routeFile.post("/upload", upload.any(), (req, res) => {
-  if (!cluster.isMaster) {
-    process.send({ event: "upload", pid: process.pid });
-  }
-
-  let { chunkIndex, chunkCount, md5 } = req.body;
-  let { originalname, fieldname, filename, destination, size, path: _path } = req.files[0];
-
-  if (chunkCount == 1) {
-    fs.renameSync(_path, path.join(path.join(destination, "../"), `${md5}.${nameSuffix(filename)}`));
-    res.send({
-      code: 200,
+// ------------------------------------------
+function busboyFun() {
+  let rs = new ReadableStream();
+  return function (req, res, next) {
+    let busboy = new Busboy({ headers: req.headers });
+    busboy.on("field", (fieldname, value, fieldnameTruncated, valueTruncated) => {
+      appendField(req.body, fieldname, value);
     });
-  } else {
-    const chunksPath = path.join(destination, md5, "/");
-    if (!fs.existsSync(chunksPath)) mkdirsSync(chunksPath);
+    busboy.on("file", (fieldname, fileStream, filename, encoding, mimetype) => {
+      // mkdirsSync(getNowTempPath2());
+      // let cws = fs.createWriteStream(path.join(getNowTempPath2(), uuid.v4()));
+      fileStream.on("data", (data) => {
+        // cws.write(data);
+        rs.push(data);
+      });
+      // fileStream.on("end", () => {
+      //   console.info(req.body);
+      //   cws.close();
+      // });
 
-    // 保证文件顺序 可能不同的系统排序方式会不一样 可能有坑 解决办法 手动生成文件名 逐个读取
-    fs.renameSync(
-      _path,
-      path.join(
-        chunksPath,
-        `${String(chunkIndex).padStart(String(+chunkCount + 1).length, "0")}-${md5}.${nameSuffix(filename)}`
-      )
-    );
-    res.send({
-      code: 200,
+      appendField(req, "file", {
+        fieldname: fieldname,
+        originalname: filename,
+        encoding: encoding,
+        mimetype: mimetype,
+      });
     });
-  }
+
+    busboy.on("finish", () => {
+      mkdirsSync(getNowTempPath());
+
+      let { chunkIndex, chunkCount, md5 } = req.body;
+      let { fieldname, originalname, encoding, mimetype } = req.file;
+
+      // let cws = fs.createWriteStream(path.join(getNowTempPath(), uuid.v4()));
+
+      rs.on("data", (data) => {
+        console.info(data);
+      });
+
+      req.unpipe(busboy);
+      next();
+    });
+
+    req.pipe(busboy);
+  };
+}
+
+routeFile.post("/upload", busboyFun(), (req, res) => {
+  res.send({
+    code: 200,
+    data: req.body,
+  });
 });
+// ------------------------------------------
+
+// routeFile.post("/upload", upload.any(), (req, res) => {
+//   if (!cluster.isMaster) {
+//     process.send({ event: "upload", pid: process.pid });
+//   }
+
+//   let { chunkIndex, chunkCount, md5 } = req.body;
+//   let { originalname, fieldname, filename, destination, size, path: _path } = req.files[0];
+
+//   if (chunkCount == 1) {
+//     fs.renameSync(_path, path.join(path.join(destination, "../"), `${md5}.${nameSuffix(filename)}`));
+//     res.send({
+//       code: 200,
+//     });
+//   } else {
+//     const chunksPath = path.join(destination, md5, "/");
+//     if (!fs.existsSync(chunksPath)) mkdirsSync(chunksPath);
+
+//     // 保证文件顺序 可能不同的系统排序方式会不一样 可能有坑 解决办法 手动生成文件名 逐个读取
+//     fs.renameSync(
+//       _path,
+//       path.join(
+//         chunksPath,
+//         `${String(chunkIndex).padStart(String(+chunkCount + 1).length, "0")}-${md5}.${nameSuffix(filename)}`
+//       )
+//     );
+//     res.send({
+//       code: 200,
+//     });
+//   }
+// });
 
 // 合并分片
 routeFile.post("/merge", (req, res) => {

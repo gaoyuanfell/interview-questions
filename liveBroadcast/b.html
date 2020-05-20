@@ -11,15 +11,15 @@
   </head>
   <body>
     <div id="app">
-      <h1>直播</h1>
-      <video id="localVideo" ref="localVideo" autoplay></video>
-      <video id="remoteVideo" ref="remoteVideo" autoplay></video>
       <div>
-        <button @click="start()">start</button>
-        <button @click="call()">call</button>
+        <button @click="createRoom()">创建房间</button>
+      </div>
+      <video ref="localVideo" autoplay></video>
+
+      <div>
+        <video ref="remoteVideo" autoplay></video>
       </div>
     </div>
-
-    <script src="./1.js"></script>
+    <script src="./b.js"></script>
   </body>
 </html>

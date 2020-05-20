@@ -4,22 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>liveBroadcast</title>
-    <link href="./1.css" rel="stylesheet" />
+    <link href="./2.css" rel="stylesheet" />
     <script src="https://cdn.jsdelivr.net/npm/vue"></script>
     <!-- <script src="https://webrtchacks.github.io/adapter/adapter-latest.js"></script> -->
     <script src="./adapter.js"></script>
   </head>
   <body>
     <div id="app">
-      <h1>直播</h1>
-      <video id="localVideo" ref="localVideo" autoplay></video>
+      <h1>看直播</h1>
       <video id="remoteVideo" ref="remoteVideo" autoplay></video>
-      <div>
-        <button @click="start()">start</button>
-        <button @click="call()">call</button>
-      </div>
     </div>
-
-    <script src="./1.js"></script>
+    <script src="./2.js"></script>
   </body>
 </html>

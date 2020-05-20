@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      id="WebViewport"
+      content="initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no"
+    />
+    <title>liveBroadcast</title>
+    <link href="./index.css" rel="stylesheet" />
+    <script>
+      function resizeFun() {
+        var viewport = document.querySelector("meta[name=viewport]");
+        //下面是根据设备像素设置viewport
+        var scale = 1 / window.devicePixelRatio;
+        viewport.setAttribute(
+          "content",
+          `width=device-width,initial-scale=${scale}, maximum-scale=${scale}, minimum-scale=${scale}, user-scalable=no`
+        );
+        var docEl = document.documentElement;
+        var fontsize = 32 * (docEl.clientWidth / 375) + "px";
+        docEl.style.fontSize = fontsize;
+      }
+      window.onresize = resizeFun;
+      resizeFun();
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/vue"></script>
+    <!-- <script src="https://webrtchacks.github.io/adapter/adapter-latest.js"></script> -->
+    <script src="./adapter.js"></script>
+  </head>
+  <body>
+    <div id="app">
+      <div class="videoBox" ref="videoBox">
+        <video ref="localVideo" autoplay></video>
+        <!-- <video v-for="item of remoteList" v-bind:srcObject="item" autoplay></video> -->
+      </div>
+    </div>
+    <script src="./index.js"></script>
+  </body>
+</html>

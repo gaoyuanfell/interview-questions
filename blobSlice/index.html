@@ -222,15 +222,15 @@
         return chunks;
       }
 
-      function fileReaderSync(blob) {
-        return new Promise((resolve, reject) => {
-          const fileReader = new FileReader();
-          fileReader.onload = (e) => {
-            resolve(e.target.result);
-          };
-          fileReader.readAsBinaryString(blob);
-        });
-      }
+      // function fileReaderSync(blob) {
+      //   return new Promise((resolve, reject) => {
+      //     const fileReader = new FileReader();
+      //     fileReader.onload = (e) => {
+      //       resolve(e.target.result);
+      //     };
+      //     fileReader.readAsBinaryString(blob);
+      //   });
+      // }
 
       async function promiseSync({ chunkData, chunkSplit, chunkRenewal, chunkCallback, chunkMerge, chunkSuccess }) {
         let chunkList = [];

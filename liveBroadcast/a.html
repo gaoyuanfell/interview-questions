@@ -12,14 +12,14 @@
   <body>
     <div id="app">
       <h1>直播</h1>
-      <video id="localVideo" ref="localVideo" autoplay></video>
-      <video id="remoteVideo" ref="remoteVideo" autoplay></video>
+      <video style="transform: rotateY(180deg);" ref="localVideo" autoplay></video>
+      <video style="transform: rotateY(180deg);" ref="remoteVideo" autoplay></video>
       <div>
         <button @click="start()">start</button>
         <button @click="call()">call</button>
+        <button @click="hangup()">hangup</button>
       </div>
     </div>
-
-    <script src="./1.js"></script>
+    <script src="./a.js"></script>
   </body>
 </html>
